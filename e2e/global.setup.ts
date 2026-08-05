@@ -2,6 +2,8 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright"
 import { test as setup } from "@playwright/test"
 import path from "node:path"
 
+setup.setTimeout(60_000)
+
 setup("authenticate", async ({ page }) => {
 	await clerkSetup()
 
@@ -11,6 +13,9 @@ setup("authenticate", async ({ page }) => {
 	}
 
 	await page.goto("/")
+	await page.waitForFunction(() => window.Clerk?.loaded === true, null, {
+		timeout: 45_000,
+	})
 	await clerk.signIn({
 		page,
 		emailAddress: email,

@@ -47,7 +47,8 @@ test.describe("invoice flow", () => {
 
 	test("filter and sort smoke", async ({ page }) => {
 		await page.goto("/app/invoices")
-		await page.getByLabel("Status").selectOption("DRAFT")
+		// Status chips use aria-label "Status: …"; use exact filter label.
+		await page.getByLabel("Status", { exact: true }).selectOption("DRAFT")
 		await expect(page).toHaveURL(/status=DRAFT/)
 		await page.getByRole("button", { name: /Sort by Number/i }).click()
 		await expect(page.getByRole("columnheader", { name: /Number/i })).toBeVisible()
