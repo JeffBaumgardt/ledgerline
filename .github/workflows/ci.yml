@@ -1,0 +1,169 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - name: Upload Vitest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-report
+          path: reports/vitest
+          if-no-files-found: ignore
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install chromium --with-deps
+      - name: Seed demo data
+        if: ${{ secrets.SUPABASE_SECRET_KEY != '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SEED_CLERK_USER_ID: ${{ secrets.SEED_CLERK_USER_ID }}
+          SEED_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+        run: pnpm db:seed
+      - name: Run Playwright
+        if: ${{ secrets.E2E_CLERK_USER_EMAIL != '' && secrets.CLERK_SECRET_KEY != '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+        run: pnpm e2e
+      - name: Skip E2E note
+        if: ${{ secrets.E2E_CLERK_USER_EMAIL == '' || secrets.CLERK_SECRET_KEY == '' }}
+        run: echo "E2E secrets not configured; skipping Playwright."
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: reports/playwright
+          if-no-files-found: ignore
+
+  publish-reports:
+    if: github.ref == 'refs/heads/main' && always()
+    needs: [unit-tests, e2e-tests]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Vitest report
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: vitest-report
+          path: site/vitest
+      - name: Download Playwright report
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: playwright-report
+          path: site/playwright
+      - name: Build reports index
+        run: |
+          mkdir -p site
+          cat > site/index.html <<EOF
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>Ledgerline test reports</title>
+            <style>
+              :root { color-scheme: light; font-family: "Segoe UI", system-ui, sans-serif; }
+              body { margin: 0; background: #eef1f4; color: #0f1c24; }
+              main { max-width: 40rem; margin: 0 auto; padding: 3rem 1.25rem; }
+              h1 { font-size: 1.75rem; margin: 0 0 0.5rem; }
+              p { color: #5c6f7c; line-height: 1.5; }
+              a { color: #0b6b5a; font-weight: 600; }
+              ul { list-style: none; padding: 0; margin: 2rem 0; }
+              li { background: #f8fafb; border: 1px solid rgba(15,28,36,.12); padding: 1rem 1.25rem; margin-bottom: .75rem; }
+              code { font-size: .85em; }
+            </style>
+          </head>
+          <body>
+            <main>
+              <h1>Ledgerline test reports</h1>
+              <p>Published from GitHub Actions for commit <code>${{ github.sha }}</code>.</p>
+              <p><a href="https://github.com/JeffBaumgardt/ledgerline/actions/runs/${{ github.run_id }}">Workflow run</a></p>
+              <ul>
+                <li><a href="./vitest/">Vitest HTML report</a></li>
+                <li><a href="./playwright/">Playwright HTML report</a></li>
+              </ul>
+            </main>
+          </body>
+          </html>
+          EOF
+          # Fallbacks if artifacts missing
+          if [ ! -f site/vitest/index.html ]; then
+            mkdir -p site/vitest
+            echo '<!doctype html><html><body><p>Vitest report not available for this run.</p></body></html>' > site/vitest/index.html
+          fi
+          if [ ! -f site/playwright/index.html ]; then
+            mkdir -p site/playwright
+            echo '<!doctype html><html><body><p>Playwright report not available for this run.</p></body></html>' > site/playwright/index.html
+          fi
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

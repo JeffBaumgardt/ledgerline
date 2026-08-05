@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+	--ll-bg: #eef1f4;
+	--ll-surface: #f8fafb;
+	--ll-ink: #0f1c24;
+	--ll-ink-soft: #2a3f4d;
+	--ll-muted: #5c6f7c;
+	--ll-accent: #0b6b5a;
+	--ll-accent-hover: #085445;
+	--ll-accent-soft: rgba(11, 107, 90, 0.12);
+	--ll-line: rgba(15, 28, 36, 0.12);
+	--ll-warn: #9a5b12;
+	--ll-danger: #9b2c2c;
+	--ll-ok: #0b6b5a;
+	--background: var(--ll-bg);
+	--foreground: var(--ll-ink);
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--font-sans: var(--font-body);
+}
+
+body {
+	background: var(--ll-bg);
+	color: var(--ll-ink);
+}
+
+/* Focus rings for keyboard users */
+:focus-visible {
+	outline: 2px solid var(--ll-accent);
+	outline-offset: 2px;
+}
