@@ -2,5 +2,4 @@ packages:
   - "."
 allowBuilds:
   esbuild: true
-onlyBuiltDependencies:
-  - esbuild
+  unrs-resolver: true
