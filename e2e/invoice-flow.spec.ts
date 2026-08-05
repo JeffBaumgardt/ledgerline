@@ -45,12 +45,15 @@ test.describe("invoice flow", () => {
 		expect(download.suggestedFilename()).toMatch(/\.csv$/i)
 	})
 
-	test("filter and sort smoke", async ({ page }) => {
+	test("filter drafts and filter by paid status", async ({ page }) => {
 		await page.goto("/app/invoices")
 		// Status chips use aria-label "Status: …"; use exact filter label.
 		await page.getByLabel("Status", { exact: true }).selectOption("DRAFT")
 		await expect(page).toHaveURL(/status=DRAFT/)
 		await page.getByRole("button", { name: /Sort by Number/i }).click()
 		await expect(page.getByRole("columnheader", { name: /Number/i })).toBeVisible()
+
+		await page.getByLabel("Status", { exact: true }).selectOption("PAID")
+		await expect(page).toHaveURL(/status=PAID/)
 	})
 })

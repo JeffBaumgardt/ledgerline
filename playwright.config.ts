@@ -23,7 +23,8 @@ export default defineConfig({
 	webServer: process.env.PLAYWRIGHT_BASE_URL
 		? undefined
 		: {
-				command: "pnpm dev",
+				// Invoke Next directly — avoids broken host-level `pnpm run` version checks in some envs.
+				command: "node ./node_modules/next/dist/bin/next dev -p 3000 -H localhost",
 				url: baseURL,
 				reuseExistingServer: !process.env.CI,
 				timeout: 120_000,
@@ -34,7 +35,14 @@ export default defineConfig({
 			testMatch: /global\.setup\.ts/,
 		},
 		{
+			name: "public",
+			testMatch: /public\.spec\.ts/,
+			use: { ...devices["Desktop Chrome"] },
+		},
+		{
 			name: "chromium",
+			testMatch: /.*\.spec\.ts/,
+			testIgnore: /public\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				storageState: "playwright/.clerk/user.json",

@@ -1,6 +1,8 @@
 import "server-only"
 
+import { computeDashboardStats } from "@/lib/dashboard-stats"
 import { InvoiceStatus, getEffectiveStatus, type StoredInvoiceStatus } from "@/lib/invoice-status"
+import { nextInvoiceNumberFrom } from "@/lib/invoice-number"
 import { invoiceTotalCents } from "@/lib/money"
 import type { ExpenseCategory } from "@/lib/validation/schemas"
 import {
@@ -262,14 +264,8 @@ export async function nextInvoiceNumber(userId: string): Promise<string> {
 		.limit(50)
 	throwOnError(error, "nextInvoiceNumber")
 
-	let max = 0
-	for (const row of data ?? []) {
-		const match = /^INV-(\d+)$/i.exec(String((row as { number: string }).number))
-		if (match) {
-			max = Math.max(max, Number(match[1]))
-		}
-	}
-	return `INV-${String(max + 1).padStart(3, "0")}`
+	const numbers = ((data as Array<{ number: string }> | null) ?? []).map((row) => String(row.number))
+	return nextInvoiceNumberFrom(numbers)
 }
 
 export async function createInvoice(
@@ -460,31 +456,17 @@ export async function getDashboardStats(userId: string, now: Date = new Date()):
 	const invoices = await listInvoices(userId)
 	const expenses = await listExpenses(userId)
 
-	const year = now.getFullYear()
-	const month = now.getMonth()
-
-	let outstandingCents = 0
-	let paidThisMonthCents = 0
-
-	for (const inv of invoices) {
-		const effective = getEffectiveStatus(inv, now)
-		if (effective === InvoiceStatus.SENT || effective === InvoiceStatus.OVERDUE) {
-			outstandingCents += inv.totalCents
-		}
-		if (effective === InvoiceStatus.PAID && inv.paidAt) {
-			if (inv.paidAt.getFullYear() === year && inv.paidAt.getMonth() === month) {
-				paidThisMonthCents += inv.totalCents
-			}
-		}
-	}
-
-	let expensesThisMonthCents = 0
-	for (const exp of expenses) {
-		const [y, m] = exp.date.split("-").map(Number)
-		if (y === year && m - 1 === month) {
-			expensesThisMonthCents += exp.amountCents
-		}
-	}
-
-	return { outstandingCents, paidThisMonthCents, expensesThisMonthCents }
+	return computeDashboardStats(
+		invoices.map((inv) => ({
+			status: inv.status,
+			dueDate: inv.dueDate,
+			totalCents: inv.totalCents,
+			paidAt: inv.paidAt,
+		})),
+		expenses.map((exp) => ({
+			date: exp.date,
+			amountCents: exp.amountCents,
+		})),
+		now,
+	)
 }

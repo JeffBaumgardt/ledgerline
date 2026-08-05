@@ -42,7 +42,8 @@ export default function TestingPage() {
 				<li className="border border-[var(--ll-line)] bg-[var(--ll-surface)] p-5">
 					<h2 className="font-[family-name:var(--font-display)] text-lg font-semibold">Vitest (unit)</h2>
 					<p className="mt-1 text-sm text-[var(--ll-muted)]">
-						Money math, overdue status derivation, CSV serialization, Zod schemas.
+						Money math, overdue status, CSV, Zod schemas, dashboard aggregates, and MSW Supabase boundary
+						tests.
 					</p>
 					<a
 						href={vitestUrl}
@@ -56,7 +57,7 @@ export default function TestingPage() {
 				<li className="border border-[var(--ll-line)] bg-[var(--ll-surface)] p-5">
 					<h2 className="font-[family-name:var(--font-display)] text-lg font-semibold">Playwright (E2E)</h2>
 					<p className="mt-1 text-sm text-[var(--ll-muted)]">
-						Create client → invoice → mark paid → dashboard; CSV export smoke.
+						Auth setup, invoice lifecycle, expenses, client edit, CSV export, public pages.
 					</p>
 					<a
 						href={playwrightUrl}

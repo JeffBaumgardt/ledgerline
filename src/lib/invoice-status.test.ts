@@ -35,4 +35,24 @@ describe("invoice-status", () => {
 			getEffectiveStatus({ status: InvoiceStatus.OVERDUE, dueDate: "2026-12-01" }, now),
 		).toBe(InvoiceStatus.OVERDUE)
 	})
+
+	it("accepts Date dueDate values", () => {
+		expect(
+			getEffectiveStatus(
+				{ status: InvoiceStatus.SENT, dueDate: new Date(2026, 7, 1) },
+				now,
+			),
+		).toBe(InvoiceStatus.OVERDUE)
+		expect(
+			getEffectiveStatus(
+				{ status: InvoiceStatus.SENT, dueDate: new Date(2026, 7, 20) },
+				now,
+			),
+		).toBe(InvoiceStatus.SENT)
+	})
+
+	it("isOverdue is false for draft and future sent", () => {
+		expect(isOverdue({ status: InvoiceStatus.DRAFT, dueDate: "2020-01-01" }, now)).toBe(false)
+		expect(isOverdue({ status: InvoiceStatus.SENT, dueDate: "2026-12-31" }, now)).toBe(false)
+	})
 })

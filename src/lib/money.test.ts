@@ -35,4 +35,14 @@ describe("money", () => {
 		expect(dollarsToCents(12.5)).toBe(1250)
 		expect(dollarsToCents(12.505)).toBe(1251)
 	})
+
+	it("handles zero quantity lines and empty sums", () => {
+		expect(lineItemTotalCents(0, 999)).toBe(0)
+		expect(sumLineItems([])).toBe(0)
+		expect(invoiceTotalCents([])).toBe(0)
+	})
+
+	it("formats negative cents as negative currency", () => {
+		expect(formatMoney(-50)).toBe("-$0.50")
+	})
 })
